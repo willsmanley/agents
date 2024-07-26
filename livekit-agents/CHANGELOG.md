@@ -1,5 +1,11 @@
 # livekit-agents
 
+## 0.8.1
+
+### Patch Changes
+
+- fix end_input not flushing & unhandled flush messages - [#528](https://github.com/livekit/agents/pull/528) ([@theomonnom](https://github.com/theomonnom))
+
 ## 0.8.0
 
 ### Minor Changes
