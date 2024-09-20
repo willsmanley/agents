@@ -17,7 +17,7 @@ from __future__ import annotations
 import asyncio
 import os
 from dataclasses import dataclass
-from typing import Any, Awaitable, MutableSet
+from typing import Any, Awaitable, Callable, MutableSet
 
 import httpx
 from livekit.agents import llm
@@ -45,6 +45,11 @@ class LLMOptions:
     user: str | None
     temperature: float | None
 
+@dataclass
+class TokenUsage:
+    prompt_tokens: int
+    completion_tokens: int
+    total_tokens: int
 
 class LLM(llm.LLM):
     def __init__(
@@ -56,7 +61,7 @@ class LLM(llm.LLM):
         user: str | None = None,
         client: openai.AsyncClient | None = None,
         temperature: float | None = None,
-        token_usage_callback: Callable[[Dict[str, Any]], None] | None = None
+        token_usage_callback: Callable[[TokenUsage], None] | None = None
     ) -> None:
         """
         Create a new instance of OpenAI LLM.
@@ -416,7 +421,7 @@ class LLM(llm.LLM):
             user=user,
             stream_options={"include_usage": True if self.token_usage_callback else False},
             **opts,
-        )
+        ) # type: ignore
 
         return LLMStream(oai_stream=cmp, chat_ctx=chat_ctx, fnc_ctx=fnc_ctx, token_usage_callback=self.token_usage_callback)
 
@@ -428,7 +433,7 @@ class LLMStream(llm.LLMStream):
         oai_stream: Awaitable[openai.AsyncStream[ChatCompletionChunk]],
         chat_ctx: llm.ChatContext,
         fnc_ctx: llm.FunctionContext | None,
-        token_usage_callback: Callable[[Dict[str, Any]], None] | None = None
+        token_usage_callback: Callable[[TokenUsage], None] | None = None
     ) -> None:
         super().__init__(chat_ctx=chat_ctx, fnc_ctx=fnc_ctx)
         self.token_usage_callback = token_usage_callback
