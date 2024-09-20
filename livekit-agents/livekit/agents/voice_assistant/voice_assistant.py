@@ -9,7 +9,7 @@ from typing import Any, AsyncIterable, Awaitable, Callable, Literal, Optional, U
 from livekit import rtc
 
 from .. import stt, tokenize, tts, utils, vad
-from ..llm import LLM, ChatContext, ChatMessage, FunctionContext, LLMStream
+from ..llm import LLM, ChatContext, ChatMessage, FunctionContext, LLMStream, FunctionCallInfo
 from ..proto import ATTR_AGENT_STATE, AgentState
 from .agent_output import AgentOutput, SynthesisHandle
 from .agent_playout import AgentPlayout
@@ -30,6 +30,10 @@ BeforeTTSCallback = Callable[
     Union[str, AsyncIterable[str], Awaitable[str]],
 ]
 
+WillLogCompletionEvent = Optional[Callable[
+    [ChatContext, str, list[FunctionCallInfo], bool],  # (chat_ctx, collected_text, tool_calls, interrupted)
+    None
+]]
 
 EventTypes = Literal[
     "user_started_speaking",
@@ -96,6 +100,7 @@ class _ImplOptions:
     preemptive_synthesis: bool
     before_llm_cb: BeforeLLMCallback
     before_tts_cb: BeforeTTSCallback
+    will_log_completion_event: WillLogCompletionEvent
     plotting: bool
     transcription: AssistantTranscriptionOptions
 
@@ -143,6 +148,7 @@ class VoiceAssistant(utils.EventEmitter[EventTypes]):
         transcription: AssistantTranscriptionOptions = AssistantTranscriptionOptions(),
         before_llm_cb: BeforeLLMCallback = _default_before_llm_cb,
         before_tts_cb: BeforeTTSCallback = _default_before_tts_cb,
+        will_log_completion_event: WillLogCompletionEvent = None,
         plotting: bool = False,
         loop: asyncio.AbstractEventLoop | None = None,
         # backward compatibility
@@ -197,6 +203,7 @@ class VoiceAssistant(utils.EventEmitter[EventTypes]):
             transcription=transcription,
             before_llm_cb=before_llm_cb,
             before_tts_cb=before_tts_cb,
+            will_log_completion_event=will_log_completion_event,
         )
         self._plotter = AssistantPlotter(self._loop)
 
@@ -736,6 +743,12 @@ class VoiceAssistant(utils.EventEmitter[EventTypes]):
                 self.emit("agent_speech_interrupted", msg)
             else:
                 self.emit("agent_speech_committed", msg)
+                
+            if self._opts.will_log_completion_event is not None:
+                if isinstance(speech_info.source, LLMStream):
+                    self._opts.will_log_completion_event(speech_info.source._chat_ctx, collected_text, speech_info.source.function_calls, interrupted)
+                else:
+                    self._opts.will_log_completion_event(self._chat_ctx, collected_text, [], interrupted)
 
             logger.debug(
                 "committed agent speech",
