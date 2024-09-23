@@ -745,8 +745,8 @@ class VoiceAssistant(utils.EventEmitter[EventTypes]):
                 self.emit("agent_speech_committed", msg)
                 
             if self._opts.will_log_completion_event is not None:
-                if isinstance(speech_info.source, LLMStream):
-                    self._opts.will_log_completion_event(speech_info.source._chat_ctx, collected_text, speech_info.source.function_calls, interrupted)
+                if isinstance(speech_handle.source, LLMStream):
+                    self._opts.will_log_completion_event(speech_handle.source._chat_ctx, collected_text, speech_handle.source.function_calls, interrupted)
                 else:
                     self._opts.will_log_completion_event(self._chat_ctx, collected_text, [], interrupted)
 
